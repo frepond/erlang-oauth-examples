@@ -2,9 +2,14 @@
 
 -behaviour(gen_server).
 
--export([access_token_params/1, deauthorize/1, get/2, get/3, get/4, get_access_token/2,
-  get_access_token/3, get_access_token/4, get_request_token/2, get_request_token/3,
-  get_request_token/4, start/1, start/2, start_link/1, start_link/2, stop/1]).
+-export([access_token_params/1, deauthorize/1,
+    get/2, get/3, get/4, 
+    post/2, post/3, post/4, 
+  get_access_token/2, get_access_token/3, get_access_token/4,
+  get_request_token/2, get_request_token/3, get_request_token/4,
+  post_request_token/2, post_request_token/3,
+  post_access_token/2, post_access_token/3,
+  start/1, start/2, start_link/1, start_link/2, stop/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
@@ -33,6 +38,12 @@ get_request_token(Client, URL, Params) ->
 get_request_token(Client, URL, Params, ParamsMethod) ->
   gen_server:call(Client, {get_request_token, URL, Params, ParamsMethod}).
 
+post_request_token(Client, URL) ->
+  gen_server:call(Client, {post_request_token, URL, [], header}).
+
+post_request_token(Client, URL, Params) ->
+  gen_server:call(Client, {post_request_token, URL, Params, header}).
+
 get_access_token(Client, URL) ->
   get_access_token(Client, URL, [], header).
 
@@ -42,6 +53,12 @@ get_access_token(Client, URL, Params) ->
 get_access_token(Client, URL, Params, ParamsMethod) ->
   gen_server:call(Client, {get_access_token, URL, Params, ParamsMethod}).
 
+post_access_token(Client, URL) ->
+  post_access_token(Client, URL, []).
+
+post_access_token(Client, URL, Params) ->
+  gen_server:call(Client, {post_access_token, URL, Params, header}).
+
 get(Client, URL) ->
   get(Client, URL, [], header).
 
@@ -50,6 +67,15 @@ get(Client, URL, Params) ->
 
 get(Client, URL, Params, ParamsMethod) ->
   gen_server:call(Client, {get, URL, Params, ParamsMethod}).
+
+post(Client, URL) ->
+  post(Client, URL, [], header).
+
+post(Client, URL, Params) ->
+  gen_server:call(Client, {post, URL, Params, header}).
+
+post(Client, URL, Params, ParamsMethod) ->
+  gen_server:call(Client, {post, URL, Params, ParamsMethod}).
 
 access_token_params(Client) ->
   gen_server:call(Client, {access_token_params}).
@@ -72,6 +98,18 @@ oauth_get(header, URL, Params, Consumer, Token, TokenSecret) ->
 oauth_get(querystring, URL, Params, Consumer, Token, TokenSecret) ->
   oauth:get(URL, Params, Consumer, Token, TokenSecret).
 
+oauth_post(header, URL, Params, Consumer, Token, TokenSecret) ->
+  Signed = oauth:sign("POST", URL, Params, Consumer, Token, TokenSecret),
+  Request = {URL, [], "application/x-www-form-urlencoded", oauth:uri_params_encode(Signed)},
+  io:format("Inside oauth_post Signed: ~p Request ~p ~n", [Signed, Request]),
+  httpc:request(post, Request, [], []);
+
+oauth_post(querystring, URL, Params, Consumer, Token, TokenSecret) ->
+  oauth:get(URL, Params, Consumer, Token, TokenSecret).
+
+
+
+
 %%============================================================================
 %% gen_server callbacks
 %%============================================================================
@@ -89,6 +127,22 @@ handle_call({get_request_token, URL, Params, ParamsMethod}, _From, State={Consum
     Error ->
       {reply, Error, State}
   end;
+handle_call({post_request_token, URL, Params, ParamsMethod}, _From, State={Consumer}) ->
+  case oauth_post(ParamsMethod, URL, Params, Consumer, "", "") of
+    {ok, Response={{_, 200, _}, _, _}} ->
+      RParams     = oauth:params_decode(Response),
+      % according to https://dev.twitter.com/docs/auth/implementing-sign-twitter,
+      % as of 2014-04-01 (sic), we're supposed to confirm that oauth_callback_confirmed
+      % is true, but nothing is specified for what to do if that is not the case.
+      io:format(" after post RParams: ~p~n", [RParams]),
+      Token       = oauth:token(RParams),
+      TokenSecret = oauth:token_secret(RParams),
+      {reply, {ok, Token, TokenSecret}, {Consumer, RParams}};
+    {ok, Response} ->
+      {reply, Response, State};
+    Error ->
+      {reply, Error, State}
+  end;
 handle_call({get_access_token, URL, Params, ParamsMethod}, _From, State={Consumer, RParams}) ->
   case oauth_get(ParamsMethod, URL, Params, Consumer, oauth:token(RParams), oauth:token_secret(RParams)) of
     {ok, Response={{_, 200, _}, _, _}} ->
@@ -99,6 +153,19 @@ handle_call({get_access_token, URL, Params, ParamsMethod}, _From, State={Consume
     Error ->
       {reply, Error, State}
   end;
+handle_call({post_access_token, URL, Params, ParamsMethod}, _From, State={Consumer, RParams}) ->
+  case oauth_post(ParamsMethod, URL, Params, Consumer, oauth:token(RParams), oauth:token_secret(RParams)) of
+    {ok, Response={{_, 200, _}, _, _}} ->
+      AParams = oauth:params_decode(Response),
+      %AccessToken   = oauth:token(RParams),
+      %AccessSecret  = oauth:token_secret(RParams),
+      {reply, ok, {Consumer, RParams, AParams}};
+    {ok, Response} ->
+      {reply, Response, State};
+    Error ->
+      {reply, Error, State}
+  end;
+
 handle_call({get, URL, Params, ParamsMethod}, _From, State={Consumer, _RParams, AParams}) ->
   case oauth_get(ParamsMethod, URL, Params, Consumer, oauth:token(AParams), oauth:token_secret(AParams)) of
     {ok, {{_, 200, _}, Headers, Body}} ->
@@ -120,6 +187,28 @@ handle_call({get, URL, Params, ParamsMethod}, _From, State={Consumer, _RParams, 
     Error ->
       {reply, Error, State}
   end;
+handle_call({post, URL, Params, ParamsMethod}, _From, State={Consumer, _RParams, AParams}) ->
+  case oauth_post(ParamsMethod, URL, Params, Consumer, oauth:token(AParams), oauth:token_secret(AParams)) of
+    {ok, {{_, 200, _}, Headers, Body}} ->
+      case proplists:get_value("content-type", Headers) of
+        undefined ->
+          {reply, {ok, Headers, Body}, State};
+        ContentType ->
+          MediaType = hd(string:tokens(ContentType, ";")),
+          case lists:suffix("/xml", MediaType) orelse lists:suffix("+xml", MediaType) of
+            true ->
+              {XML, []} = xmerl_scan:string(Body),
+              {reply, {ok, Headers, XML}, State};
+            false ->
+              {reply, {ok, Headers, Body}, State}
+          end
+      end;
+    {ok, Response} ->
+      {reply, Response, State};
+    Error ->
+      {reply, Error, State}
+  end;
+
 handle_call({access_token_params}, _From, State={_Consumer, _RParams, AParams}) ->
   {reply, AParams, State}.
 

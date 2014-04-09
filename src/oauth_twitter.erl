@@ -48,3 +48,26 @@ get_favorites(Client) ->
 verify_credentials(Client) ->
   URL = "https://api.twitter.com/1.1/account/verify_credentials.json",
   oauth_client:get(Client, URL, []).
+
+%% V2.0
+post_request_token(Client, RedirectUrl) ->
+  URL = "https://twitter.com/oauth/request_token",
+  Params = [ {"oauth_callback", RedirectUrl}],
+  oauth_client:post_request_token(Client, URL, Params).
+
+post_access_token(Client, Verifier) ->
+  URL = "https://twitter.com/oauth/access_token",
+  oauth_client:post_access_token(Client, URL, [{"oauth_verifier", Verifier}]).
+
+post_tweet(Client, Tweet) ->
+  URL = "https://api.twitter.com/1.1/statuses/update.json",
+  oauth_client:post(Client, URL, [{"status", Tweet}]).
+
+%get_tweet(TweetId) ->
+%  URL = "https://api.twitter.com/1.1/statuses/show/" 
+%          ++ integer_to_list(TweetId)
+%          ++ ".json",
+%  oauth_client:get(Client, URL, []).
+
+
+
