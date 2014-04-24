@@ -69,5 +69,8 @@ post_tweet(Client, Tweet) ->
 %          ++ ".json",
 %  oauth_client:get(Client, URL, []).
 
+stop(Client) ->
+  oauth_client:stop(Client).
+
 
 
