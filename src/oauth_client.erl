@@ -101,7 +101,6 @@ oauth_get(querystring, URL, Params, Consumer, Token, TokenSecret) ->
 oauth_post(header, URL, Params, Consumer, Token, TokenSecret) ->
   Signed = oauth:sign("POST", URL, Params, Consumer, Token, TokenSecret),
   Request = {URL, [], "application/x-www-form-urlencoded", oauth:uri_params_encode(Signed)},
-  io:format("Inside oauth_post Signed: ~p Request ~p ~n", [Signed, Request]),
   httpc:request(post, Request, [], []);
 
 oauth_post(querystring, URL, Params, Consumer, Token, TokenSecret) ->
@@ -134,10 +133,8 @@ handle_call({post_request_token, URL, Params, ParamsMethod}, _From, State={Consu
       % according to https://dev.twitter.com/docs/auth/implementing-sign-twitter,
       % as of 2014-04-01 (sic), we're supposed to confirm that oauth_callback_confirmed
       % is true, but nothing is specified for what to do if that is not the case.
-      io:format(" after post RParams: ~p~n", [RParams]),
       Token       = oauth:token(RParams),
-      TokenSecret = oauth:token_secret(RParams),
-      {reply, {ok, Token, TokenSecret}, {Consumer, RParams}};
+      {reply, {ok, Token}, {Consumer, RParams}};
     {ok, Response} ->
       {reply, Response, State};
     Error ->
