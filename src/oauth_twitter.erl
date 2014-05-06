@@ -71,6 +71,3 @@ post_tweet(Client, Tweet) ->
 
 stop(Client) ->
   oauth_client:stop(Client).
-
-
-
