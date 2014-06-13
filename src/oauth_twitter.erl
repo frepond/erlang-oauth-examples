@@ -71,3 +71,10 @@ post_tweet(Client, Tweet) ->
 
 stop(Client) ->
   oauth_client:stop(Client).
+
+get_friends(Client) -> %, ScreenName, UserId) ->
+  % Since we're using OAuth for authentication we end up no needing the ScreenName and UserId
+  %Url = "https://api.twitter.com/1.1/friends/ids.json?screen_name=" ++ ScreenName ++ "&user_id=" ++ UserId,
+  Url = "https://api.twitter.com/1.1/friends/ids.json",
+  %io:format("This is the URL~p~n", [Url]),
+  oauth_client:get(Client, Url, []).
