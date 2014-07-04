@@ -78,3 +78,7 @@ get_friends(Client) -> %, ScreenName, UserId) ->
   Url = "https://api.twitter.com/1.1/friends/ids.json",
   %io:format("This is the URL~p~n", [Url]),
   oauth_client:get(Client, Url, []).
+
+get_home_timeline(Client) ->
+  Url = "https://api.twitter.com/1.1/statuses/home_timeline.json",
+  oauth_client:get(Client, Url, []).
