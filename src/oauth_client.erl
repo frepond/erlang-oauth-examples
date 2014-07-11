@@ -3,8 +3,8 @@
 -behaviour(gen_server).
 
 -export([access_token_params/1, deauthorize/1,
-    get/2, get/3, get/4, 
-    post/2, post/3, post/4, 
+    get/2, get/3, get/4,
+    post/2, post/3, post/4,
   get_access_token/2, get_access_token/3, get_access_token/4,
   get_request_token/2, get_request_token/3, get_request_token/4,
   post_request_token/2, post_request_token/3,
@@ -104,10 +104,20 @@ oauth_post(header, URL, Params, Consumer, Token, TokenSecret) ->
   httpc:request(post, Request, [], []);
 
 oauth_post(querystring, URL, Params, Consumer, Token, TokenSecret) ->
-  oauth:get(URL, Params, Consumer, Token, TokenSecret).
+  oauth:get(URL, Params, Consumer, Token, TokenSecret);
 
-
-
+oauth_post({multipart, Boundary}, URL, Body, Consumer, Token, TokenSecret) ->
+  BodyH   = base64:encode_to_string(crypto:hash(sha, Body)),
+  %% The body hash is not needed by the Twitter Api, but will be useful for
+  %% other clients.
+  Signed  = oauth:sign("POST", URL, [{"oauth_body_hash", BodyH}]
+                      , Consumer, Token, TokenSecret),
+  {AuthorizationParams, []} =
+            lists:partition(fun({K, _}) -> lists:prefix("oauth_", K) end, Signed),
+  Headers = [ oauth:header(AuthorizationParams)],
+  ContentType = "multipart/form-data;boundary=" ++ Boundary,
+  Request = {URL, Headers, ContentType, Body},
+  httpc:request(post, Request, [], []).
 
 %%============================================================================
 %% gen_server callbacks
@@ -201,8 +211,10 @@ handle_call({post, URL, Params, ParamsMethod}, _From, State={Consumer, _RParams,
           end
       end;
     {ok, Response} ->
+      io:format("Response: ~p~n", [Response]),
       {reply, Response, State};
     Error ->
+      io:format("Error: ~p~n", [Error]),
       {reply, Error, State}
   end;
 

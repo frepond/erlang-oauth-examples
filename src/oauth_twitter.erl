@@ -63,6 +63,18 @@ post_tweet(Client, Tweet) ->
   URL = "https://api.twitter.com/1.1/statuses/update.json",
   oauth_client:post(Client, URL, [{"status", Tweet}]).
 
+tweet_with_picture(Client, Tweet, FileName) ->
+  URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
+  BaseN = filename:basename(FileName),
+  {ok, File} = file:read_file(FileName),
+  Bound = base64:encode_to_string(crypto:rand_bytes(32)),
+  Msg   = io_lib:format("--~s\r~nContent-Disposition: form-data; name=\"status\"\r~n\r~n~s\r~n--~s\r~nContent-Type: application/octet-stream\r~nContent-Disposition: form-data; name=\"media[]\"; filename=\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
+    , [Bound, Tweet, Bound, BaseN, File, Bound]),
+  oauth_client:post(Client
+                   , URL
+                   , lists:flatten(Msg)
+                   , {multipart, Bound}).
+
 %get_tweet(TweetId) ->
 %  URL = "https://api.twitter.com/1.1/statuses/show/" 
 %          ++ integer_to_list(TweetId)
@@ -76,7 +88,6 @@ get_friends(Client) -> %, ScreenName, UserId) ->
   % Since we're using OAuth for authentication we end up no needing the ScreenName and UserId
   %Url = "https://api.twitter.com/1.1/friends/ids.json?screen_name=" ++ ScreenName ++ "&user_id=" ++ UserId,
   Url = "https://api.twitter.com/1.1/friends/ids.json",
-  %io:format("This is the URL~p~n", [Url]),
   oauth_client:get(Client, Url, []).
 
 get_home_timeline(Client) ->
