@@ -64,9 +64,12 @@ post_tweet(Client, Tweet) ->
   oauth_client:post(Client, URL, [{"status", Tweet}]).
 
 tweet_with_picture(Client, Tweet, FileName) ->
-  URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   BaseN = filename:basename(FileName),
   {ok, File} = file:read_file(FileName),
+  tweet_with_picture(Client, Tweet, File, BaseN).
+
+tweet_with_picture(Client, Tweet, File, BaseN) ->
+  URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
   Msg   = io_lib:format("--~s\r~nContent-Disposition: form-data; name=\"status\"\r~n\r~n~s\r~n--~s\r~nContent-Type: application/octet-stream\r~nContent-Disposition: form-data; name=\"media[]\"; filename=\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
     , [Bound, Tweet, Bound, BaseN, File, Bound]),
