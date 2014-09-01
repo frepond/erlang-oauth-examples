@@ -24,11 +24,29 @@
 %% authorized the request token and been given the a verifier PIN at twitter.
 %%
 -module(oauth_twitter).
+-export([ start/1
+        , get_request_token/1
+        , authorize_url/1
+        , get_access_token/2
+        , get_favorites/1
+        , verify_credentials/1
+        , post_request_token/2
+        , post_access_token/2
+        , post_tweet_foo/2
+        , tweet_with_picture/3
+        , tweet_with_picture/4
+        , stop/1
+        , get_friends/1
+        , get_home_timeline/1
+        ]).
 
--compile(export_all).
+-export_type([t/0]).
+-opaque t() :: pid().
 
+-spec start({string(), string()}) -> t().
 start(Consumer) ->
-  oauth_client:start(Consumer).
+  {ok, Client} = oauth_client:start(Consumer),
+  Client.
 
 get_request_token(Client) ->
   URL = "https://twitter.com/oauth/request_token",
@@ -59,7 +77,7 @@ post_access_token(Client, Verifier) ->
   URL = "https://twitter.com/oauth/access_token",
   oauth_client:post_access_token(Client, URL, [{"oauth_verifier", Verifier}]).
 
-post_tweet(Client, Tweet) ->
+post_tweet_foo(Client, Tweet) ->
   URL = "https://api.twitter.com/1.1/statuses/update.json",
   oauth_client:post(Client, URL, [{"status", Tweet}]).
 
@@ -77,12 +95,6 @@ tweet_with_picture(Client, Tweet, File, BaseN) ->
                    , URL
                    , lists:flatten(Msg)
                    , {multipart, Bound}).
-
-%get_tweet(TweetId) ->
-%  URL = "https://api.twitter.com/1.1/statuses/show/" 
-%          ++ integer_to_list(TweetId)
-%          ++ ".json",
-%  oauth_client:get(Client, URL, []).
 
 stop(Client) ->
   oauth_client:stop(Client).
