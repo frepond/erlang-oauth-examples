@@ -25,67 +25,91 @@
 %%
 -module(oauth_twitter).
 -export([ start/1
+        , stop/1
         , get_request_token/1
+        , post_request_token/2
         , authorize_url/1
         , get_access_token/2
-        , get_favorites/1
-        , verify_credentials/1
-        , post_request_token/2
         , post_access_token/2
-        , post_tweet_foo/2
+        , verify_credentials/1
+        , get_favorites/1
+        , post_tweet/2
         , tweet_with_picture/3
         , tweet_with_picture/4
-        , stop/1
         , get_friends/1
         , get_home_timeline/1
         ]).
 
 -export_type([t/0]).
--opaque t() :: pid().
+-opaque t() :: oauth_client:t().
 
--spec start({string(), string()}) -> t().
+%% Client logic
+-spec start(oauth:consumer()) -> t().
 start(Consumer) ->
   {ok, Client} = oauth_client:start(Consumer),
   Client.
 
+-spec stop(t()) -> 'ok'.
+stop(Client) ->
+  oauth_client:stop(Client).
+
+%% Verification
+-spec get_request_token(t()) -> oauth_client:request_token_response().
 get_request_token(Client) ->
   URL = "https://twitter.com/oauth/request_token",
   oauth_client:get_request_token(Client, URL).
 
-authorize_url(Token) ->
-  oauth:uri("https://twitter.com/oauth/authorize", [{"oauth_token", Token}]).
-
-get_access_token(Client, Verifier) ->
-  URL = "https://twitter.com/oauth/access_token",
-  oauth_client:get_access_token(Client, URL, [{"oauth_verifier", Verifier}]).
-
-get_favorites(Client) ->
-  URL = "https://api.twitter.com/1.1/favorites/list.json",
-  oauth_client:get(Client, URL, []).
-
-verify_credentials(Client) ->
-  URL = "https://api.twitter.com/1.1/account/verify_credentials.json",
-  oauth_client:get(Client, URL, []).
-
-%% V2.0
+-spec post_request_token(t(), nonempty_string()) -> oauth_client:request_token_response().
 post_request_token(Client, RedirectUrl) ->
   URL = "https://twitter.com/oauth/request_token",
   Params = [ {"oauth_callback", RedirectUrl}],
   oauth_client:post_request_token(Client, URL, Params).
 
+-spec authorize_url(string()) -> nonempty_string().
+authorize_url(Token) ->
+  oauth:uri("https://twitter.com/oauth/authorize", [{"oauth_token", Token}]).
+
+-spec get_access_token(t(), string()) -> oauth_client:access_token_response().
+get_access_token(Client, Verifier) ->
+  URL = "https://twitter.com/oauth/access_token",
+  oauth_client:get_access_token(Client, URL, [{"oauth_verifier", Verifier}]).
+
+-spec post_access_token(t(), string()) -> oauth_client:access_token_response().
 post_access_token(Client, Verifier) ->
   URL = "https://twitter.com/oauth/access_token",
   oauth_client:post_access_token(Client, URL, [{"oauth_verifier", Verifier}]).
 
-post_tweet_foo(Client, Tweet) ->
+%% Business Use cases
+
+% https://dev.twitter.com/docs/api/1.1/get/account/verify_credentials
+-spec verify_credentials(t()) -> oauth_client:http_response().
+verify_credentials(Client) ->
+  URL = "https://api.twitter.com/1.1/account/verify_credentials.json",
+  oauth_client:get(Client, URL, []).
+
+% https://dev.twitter.com/docs/api/1.1/get/favorites/list
+-spec get_favorites(t()) -> oauth_client:http_response().
+get_favorites(Client) ->
+  URL = "https://api.twitter.com/1.1/favorites/list.json",
+  oauth_client:get(Client, URL, []).
+
+% https://dev.twitter.com/docs/api/1.1/post/statuses/update
+-spec post_tweet(t(), nonempty_string()) -> oauth_client:http_response().
+post_tweet(Client, Tweet) ->
   URL = "https://api.twitter.com/1.1/statuses/update.json",
   oauth_client:post(Client, URL, [{"status", Tweet}]).
 
+% https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
+-spec tweet_with_picture(t(), nonempty_string(), file:filename()) ->
+                         oauth_client:http_response().
 tweet_with_picture(Client, Tweet, FileName) ->
   BaseN = filename:basename(FileName),
   {ok, File} = file:read_file(FileName),
   tweet_with_picture(Client, Tweet, File, BaseN).
 
+% https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
+-spec tweet_with_picture(t(), nonempty_string(), binary(), file:filename()) ->
+                         oauth_client:http_response().
 tweet_with_picture(Client, Tweet, File, BaseN) ->
   URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
@@ -96,15 +120,18 @@ tweet_with_picture(Client, Tweet, File, BaseN) ->
                    , lists:flatten(Msg)
                    , {multipart, Bound}).
 
-stop(Client) ->
-  oauth_client:stop(Client).
-
-get_friends(Client) -> %, ScreenName, UserId) ->
-  % Since we're using OAuth for authentication we end up no needing the ScreenName and UserId
+% https://dev.twitter.com/docs/api/1.1/get/friends/ids
+% aka as people you follow.
+-spec get_friends(t()) -> oauth_client:http_response().
+get_friends(Client) ->
+  % Since we're using OAuth for authentication we end up no needing the
+  % ScreenName and UserId arguments
   %Url = "https://api.twitter.com/1.1/friends/ids.json?screen_name=" ++ ScreenName ++ "&user_id=" ++ UserId,
   Url = "https://api.twitter.com/1.1/friends/ids.json",
   oauth_client:get(Client, Url, []).
 
+% https://dev.twitter.com/docs/api/1.1/get/statuses/home_timeline
+-spec get_home_timeline(t()) -> oauth_client:http_response().
 get_home_timeline(Client) ->
   Url = "https://api.twitter.com/1.1/statuses/home_timeline.json",
   oauth_client:get(Client, Url, []).
