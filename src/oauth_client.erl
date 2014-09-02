@@ -17,6 +17,7 @@
 -export_type([ t/0
              , request_token_response/0
              , access_token_response/0
+             , http_response/0
              ]).
 -opaque t() :: pid().
 
