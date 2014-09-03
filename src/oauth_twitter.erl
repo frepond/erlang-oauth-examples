@@ -41,7 +41,7 @@
         ]).
 
 -export_type([t/0]).
--opaque t() :: oauth_client:t().
+-type t() :: oauth_client:t().
 
 %% Client logic
 -spec start(oauth:consumer()) -> t().
@@ -65,9 +65,10 @@ post_request_token(Client, RedirectUrl) ->
   Params = [ {"oauth_callback", RedirectUrl}],
   oauth_client:post_request_token(Client, URL, Params).
 
+% https://dev.twitter.com/docs/api/1/get/oauth/authorize
 -spec authorize_url(string()) -> nonempty_string().
 authorize_url(Token) ->
-  oauth:uri("https://twitter.com/oauth/authorize", [{"oauth_token", Token}]).
+  oauth:uri("https://api.twitter.com/oauth/authorize", [{"oauth_token", Token}]).
 
 -spec get_access_token(t(), string()) -> oauth_client:access_token_response().
 get_access_token(Client, Verifier) ->
