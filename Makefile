@@ -1,12 +1,6 @@
 DEPS_PLT=$(CURDIR)/.deps_plt
 DEPS=erts kernel stdlib xmerl inets ssl crypto public_key 
 
-deps:
-	@rebar get-deps
-
-update-deps:
-	@rebar update-deps
-
 all: compile
 
 compile:
@@ -15,6 +9,12 @@ compile:
 
 clean:
 	@rm -rf ebin/*.beam erl_crash.dump
+
+deps:
+	@rebar get-deps
+
+update-deps:
+	@rebar update-deps
 
 $(DEPS_PLT):
 	@echo Building local plt at $(DEPS_PLT)
