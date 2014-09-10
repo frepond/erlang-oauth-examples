@@ -34,8 +34,11 @@
         , verify_credentials/1
         , get_favorites/1
         , post_tweet/2
-        , tweet_with_picture/3
+        , post_tweet/3
+        , tweet_with_picture_filename/3
+        , tweet_with_picture_filename/4
         , tweet_with_picture/4
+        , tweet_with_picture/5
         , get_friends/1
         , get_home_timeline/1
         ]).
@@ -100,17 +103,20 @@ post_tweet(Client, Tweet) ->
   URL = "https://api.twitter.com/1.1/statuses/update.json",
   oauth_client:post(Client, URL, [{"status", Tweet}]).
 
+-spec post_tweet(t(), nonempty_string(), binary()) -> oauth_client:http_response().
+post_tweet(Client, Tweet, ReplyTweet) ->
+  URL = "https://api.twitter.com/1.1/statuses/update.json",
+  oauth_client:post(Client, URL, [{"status", Tweet},{"in_reply_to_status_id", ReplyTweet}]).
+
 % https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
--spec tweet_with_picture(t(), nonempty_string(), file:filename()) ->
-                         oauth_client:http_response().
-tweet_with_picture(Client, Tweet, FileName) ->
+% TODO: refactor this interface
+-spec tweet_with_picture_filename(t(), nonempty_string(), file:filename()) -> oauth_client:http_response().
+tweet_with_picture_filename(Client, Tweet, FileName) ->
   BaseN = filename:basename(FileName),
   {ok, File} = file:read_file(FileName),
   tweet_with_picture(Client, Tweet, File, BaseN).
 
-% https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
--spec tweet_with_picture(t(), nonempty_string(), binary(), file:filename()) ->
-                         oauth_client:http_response().
+-spec tweet_with_picture(t(), nonempty_string(), binary(), file:filename()) -> oauth_client:http_response().
 tweet_with_picture(Client, Tweet, File, BaseN) ->
   URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
@@ -120,6 +126,25 @@ tweet_with_picture(Client, Tweet, File, BaseN) ->
                    , URL
                    , lists:flatten(Msg)
                    , {multipart, Bound}).
+
+-spec tweet_with_picture_filename(t(), nonempty_string(), file:filename(), binary()) -> oauth_client:http_response().
+tweet_with_picture_filename(Client, Tweet, FileName, Reply) when is_binary(Reply) ->
+  BaseN = filename:basename(FileName),
+  {ok, File} = file:read_file(FileName),
+  tweet_with_picture(Client, Tweet, File, BaseN, Reply).
+
+-spec tweet_with_picture(t(), nonempty_string(), binary(), file:filename(), binary()) ->
+                         oauth_client:http_response().
+tweet_with_picture(Client, Tweet, File, BaseN, Reply) ->
+  URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
+  Bound = base64:encode_to_string(crypto:rand_bytes(32)),
+  Msg   = io_lib:format("--~s\r~nContent-Disposition: form-data; name=\"status\"\r~n\r~n~s\r~n--~s\r~nContent-Disposition: form-data; name=\"in_reply_to_status_id\"\r~n\r~n~s\r~n--~s\r~nContent-Type: application/octet-stream\r~nContent-Disposition: form-data; name=\"media[]\"; filename=\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
+    , [Bound, Tweet, Bound, Reply, Bound, BaseN, File, Bound]),
+  oauth_client:post(Client
+                   , URL
+                   , lists:flatten(Msg)
+                   , {multipart, Bound}).
+
 
 % https://dev.twitter.com/docs/api/1.1/get/friends/ids
 % aka as people you follow.
