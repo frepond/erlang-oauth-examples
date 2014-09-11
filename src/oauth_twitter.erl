@@ -139,7 +139,7 @@ tweet_with_picture(Client, Tweet, File, BaseN, Reply) ->
   URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
   Msg   = multipart_encode(Bound, Tweet, File, BaseN, Reply),
-  ok    = io:format("Msg:~n~s~n", [Msg]),
+  %ok    = io:format("Msg:~n~s~n", [Msg]),
   oauth_client:post(Client
                    , URL
                    , lists:flatten(Msg)
