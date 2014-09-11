@@ -39,6 +39,7 @@
         , tweet_with_picture_filename/4
         , tweet_with_picture/4
         , tweet_with_picture/5
+        , multipart_encode/5
         , get_friends/1
         , get_home_timeline/1
         ]).
@@ -120,8 +121,7 @@ tweet_with_picture_filename(Client, Tweet, FileName) ->
 tweet_with_picture(Client, Tweet, File, BaseN) ->
   URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
-  Msg   = io_lib:format("--~s\r~nContent-Disposition: form-data; name=\"status\"\r~n\r~n~s\r~n--~s\r~nContent-Type: application/octet-stream\r~nContent-Disposition: form-data; name=\"media[]\"; filename=\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
-    , [Bound, Tweet, Bound, BaseN, File, Bound]),
+  Msg   = multipart_encode(Bound, Tweet, File, BaseN, <<>>),
   oauth_client:post(Client
                    , URL
                    , lists:flatten(Msg)
@@ -138,13 +138,12 @@ tweet_with_picture_filename(Client, Tweet, FileName, Reply) when is_binary(Reply
 tweet_with_picture(Client, Tweet, File, BaseN, Reply) ->
   URL   = "https://api.twitter.com/1.1/statuses/update_with_media.json",
   Bound = base64:encode_to_string(crypto:rand_bytes(32)),
-  Msg   = io_lib:format("--~s\r~nContent-Disposition: form-data; name=\"status\"\r~n\r~n~s\r~n--~s\r~nContent-Disposition: form-data; name=\"in_reply_to_status_id\"\r~n\r~n~s\r~n--~s\r~nContent-Type: application/octet-stream\r~nContent-Disposition: form-data; name=\"media[]\"; filename=\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
-    , [Bound, Tweet, Bound, Reply, Bound, BaseN, File, Bound]),
+  Msg   = multipart_encode(Bound, Tweet, File, BaseN, Reply),
+  ok    = io:format("Msg:~n~s~n", [Msg]),
   oauth_client:post(Client
                    , URL
                    , lists:flatten(Msg)
                    , {multipart, Bound}).
-
 
 % https://dev.twitter.com/docs/api/1.1/get/friends/ids
 % aka as people you follow.
@@ -161,3 +160,17 @@ get_friends(Client) ->
 get_home_timeline(Client) ->
   Url = "https://api.twitter.com/1.1/statuses/home_timeline.json",
   oauth_client:get(Client, Url, []).
+
+%% Private
+-spec multipart_encode(nonempty_string(), nonempty_string(), binary(), file:filename(), binary()) -> nonempty_string().
+multipart_encode(Bound, Tweet, File, Basename, Reply) ->
+  TweetPrefix = "Content-Disposition: form-data; name=\"status\"",
+  FilePrefix1 = "Content-Type: application/octet-stream",
+  FilePrefix2 = "Content-Disposition: form-data; name=\"media[]\"; filename=",
+  ReplyLine   = case Reply of <<>>  -> ""; _ -> multipart_encode_reply(Bound, Reply) end,
+  io_lib:format("--~s\r~n~s\r~n\r~n~s\r~n~s--~s\r~n~s\r~n~s\"~s\"\r~n\r~n~s\r~n--~s--\r~n"
+    , [Bound, TweetPrefix, Tweet, ReplyLine, Bound, FilePrefix1, FilePrefix2, Basename, File, Bound]).
+
+multipart_encode_reply(Bound, Reply) ->
+  ReplyPrefix = "Content-Disposition: form-data; name=\"in_reply_to_status_id\"",
+  io_lib:format("--~s\r~n~s\r~n\r~n~s\r~n", [Bound, ReplyPrefix, Reply]).
