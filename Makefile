@@ -5,7 +5,7 @@ all: compile
 
 compile:
 	@test -d ebin || mkdir ebin
-	@erl -make
+	@rebar compile
 
 clean:
 	@rm -rf ebin/*.beam erl_crash.dump
