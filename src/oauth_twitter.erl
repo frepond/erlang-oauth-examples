@@ -28,7 +28,7 @@
 %%   ...
 %%   2> {ok, Client} = oauth_twitter:start(Consumer).
 %%   ...
-%%   3> ok = oauth_twitter:set_dev_access_token(Client, "...Access Token...", "...Access Token Secret...", "...Owner...", "...Owner Id...").
+%%   3> ok = oauth_twitter:set_access_token(Client, "...Access Token...", "...Access Token Secret...", "...Owner...", "...Owner Id...").
 %%   ...
 %%   4> {ok, Headers, JSON} = oauth_twitter:get_favorites(Client).
 %%   ...
@@ -55,7 +55,7 @@
         , multipart_encode/5
         , get_friends/1
         , get_home_timeline/1
-        , set_dev_access_token/5
+        , set_access_token/5
         ]).
 
 -export_type([t/0]).
@@ -83,15 +83,15 @@ post_request_token(Client, RedirectUrl) ->
   Params = [ {"oauth_callback", RedirectUrl}],
   oauth_client:post_request_token(Client, URL, Params).
 
--spec set_dev_access_token(t(), nonempty_string(), nonempty_string(), 
+-spec set_access_token(t(), nonempty_string(), nonempty_string(), 
   nonempty_string(), nonempty_string()) -> oauth_client:request_token_response().
-set_dev_access_token(Client, AccessToken, AccessSecret, UserId, ScreenName) ->
+set_access_token(Client, AccessToken, AccessSecret, UserId, ScreenName) ->
   AParams = [
     {"oauth_token", AccessToken},
     {"oauth_token_secret", AccessSecret},
     {"user_id", UserId},
     {"screen_name", ScreenName}],
-  oauth_client:set_dev_access_token(Client, AParams).
+  oauth_client:set_access_token(Client, AParams).
 
 % https://dev.twitter.com/docs/api/1/get/oauth/authorize
 -spec authorize_url(string()) -> nonempty_string().

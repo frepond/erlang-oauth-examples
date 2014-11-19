@@ -9,7 +9,7 @@
           get_access_token/2, get_access_token/3, get_access_token/4,
           get_request_token/2, get_request_token/3, get_request_token/4,
           post_request_token/2, post_request_token/3,
-          post_access_token/2, post_access_token/3, set_dev_access_token/2,
+          post_access_token/2, post_access_token/3, set_access_token/2,
           start/1, start/2, start_link/1, start_link/2, stop/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
@@ -93,8 +93,8 @@ post_access_token(Client, URL) ->
 post_access_token(Client, URL, Params) ->
   gen_server:call(Client, {post_access_token, URL, Params, header}).
 
-set_dev_access_token(Client, AParams) ->
-  gen_server:call(Client, {set_dev_access_token, AParams}).
+set_access_token(Client, AParams) ->
+  gen_server:call(Client, {set_access_token, AParams}).
 
 -spec get(t(),oauth:url()) -> http_response().
 get(Client, URL) ->
@@ -181,7 +181,7 @@ init(Consumer) ->
 
 -type param_call_methods() :: 'get' | 'get_access_token' | 'get_request_token'
                             | 'post' | 'post_access_token' | 'post_request_token' 
-                            | 'set_dev_access_token'.
+                            | 'set_access_token'.
 -type call_methods() :: {'access_token_params'} 
                       | { param_call_methods(), oauth:url(), oauth:params()
                           , oauth:consumer(), post_parameter_method()}.
@@ -239,7 +239,7 @@ handle_call({post_access_token, URL, Params, ParamsMethod}, _From, State={Consum
     Error ->
       {reply, Error, State}
   end;
-handle_call({set_dev_access_token, AParams}, _From, _State={Consumer, RParams}) ->
+handle_call({set_access_token, AParams}, _From, _State={Consumer, RParams}) ->
   {reply, ok, {Consumer, RParams, AParams}};
 handle_call({get, URL, Params, ParamsMethod}, _From, State={Consumer, _RParams, AParams}) ->
   case oauth_get(ParamsMethod, URL, Params, Consumer, oauth:token(AParams), oauth:token_secret(AParams)) of
